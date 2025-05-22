@@ -126,4 +126,58 @@ This ensures that any files the **guest user** creates are deleted at the end of
 * **Method 2** gives you more control by using a **`systemd` service** to clean up files after the session ends.
 * **Method 3** uses **PAM** to ensure temporary sessions for the guest user, with files cleaned up when the session ends.
 
-These methods will help ensure that the **guest user**'s files are automatically deleted after they finish their session. Let me know if you need further help! 😊
+Yes, the **temporary files** setup for the **guest user** (using **`tmpfs`** or **`systemd`** cleanup methods) will clean up the **guest's session data**, including **files** created by the guest user. However, **browser data** (such as cache, cookies, browsing history, etc.) typically needs a bit more attention, since browser data is stored in different places.
+
+### **Temporary Files and Session Data**
+
+* **Method 1 (tmpfs)**: By setting the guest user's home directory to **`/dev/shm/guest`** (which is in **RAM**), any files created during the session, including documents, images, and other files, will automatically be **lost** when the system is rebooted or the session ends (because **tmpfs** is a **volatile filesystem**).
+* **Method 2 (systemd service)**: If you set up a **`systemd` service** to clean up files on logout, this will ensure that any files created in **`/dev/shm/guest`** are explicitly removed when the guest session ends.
+
+### **Browser Data (Cache, Cookies, History)**
+
+Browsers store their data (such as cache, cookies, and browsing history) in specific **hidden directories** (usually under **`~/.cache`** or **`~/.mozilla`** for Firefox, and **`~/.config/google-chrome`** for Chrome).
+
+To **ensure browser data is cleaned up** after a guest session ends, you can:
+
+1. **Set up Temporary Browser Profiles:**
+
+   * One way to prevent browser data from being saved is by using a **temporary profile** for the **guest user**. Many browsers (like **Chrome** and **Firefox**) allow you to create a new user profile or use **incognito mode** for a session.
+   * In **incognito** or **private browsing mode**, the browser doesn’t store any history, cookies, or cache once the session is closed.
+
+2. **Delete Browser Data on Logout:**
+
+   * You can create a cleanup script that specifically **deletes browser data** when the guest user logs out. For instance, add the following to the **`~/.bash_logout`** for the **guest user** (or a system-wide script):
+
+     ```bash
+     rm -rf /home/guest/.cache/*
+     rm -rf /home/guest/.mozilla/*
+     rm -rf /home/guest/.config/google-chrome/*
+     ```
+
+3. **Automatic Cleanup with Systemd:**
+
+   * In addition to the **file cleanup** in **`/dev/shm/guest`**, you could add steps to delete specific browser data in the **`systemd` service**. Modify your **`systemd` cleanup script** to include commands to remove browser cache and settings:
+
+     ```bash
+     [Service]
+     Type=oneshot
+     ExecStart=/bin/rm -rf /dev/shm/guest/*
+     ExecStart=/bin/rm -rf /home/guest/.cache/*
+     ExecStart=/bin/rm -rf /home/guest/.mozilla/*
+     ExecStart=/bin/rm -rf /home/guest/.config/google-chrome/*
+     ```
+
+### **Important Notes:**
+
+* **Temporary Home Directory**: If you set the **guest user's home directory** to **`/dev/shm/guest`**, this will prevent any persistent data, including browser data, from being saved to disk. However, if the browser stores data outside the guest's home directory (e.g., in **`/tmp`**), additional cleanup will be necessary.
+* **Incognito Mode**: Using **incognito** or **private browsing mode** can be an alternative to ensure **browser data** isn’t saved during the session.
+
+### **Conclusion:**
+
+To ensure **all guest session data** (including browser data) is deleted, you can:
+
+* Use a **temporary home directory** (`/dev/shm/guest`) to automatically discard files at reboot or session end.
+* Set up **systemd** to clean up specific browser data when the guest session ends.
+* Use **incognito** or **private browsing mode** for browser sessions to prevent browser data from being saved.
+
+By combining these methods, you'll ensure that both **file data** and **browser data** are **cleared** when the **guest user** logs out. 
